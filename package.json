@@ -1,0 +1,1 @@
+{"name":"deep-reader-neural-backend","version":"3.1.0","type":"module","scripts":{"start":"node server.mjs"},"engines":{"node":">=18"}}
