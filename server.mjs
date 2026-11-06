@@ -1,4 +1,9 @@
 import http from "node:http";
+import { readFile } from "node:fs/promises";
+import { fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+const ROOT = dirname(fileURLToPath(import.meta.url));
+const VERSION = "deep-reader-2.1-health-static-20261106";
 
 const PORT = process.env.PORT || 8787;
 const API_KEY = process.env.OPENAI_API_KEY;
@@ -11,12 +16,13 @@ const cors = {
 };
 
 const server = http.createServer(async (req,res)=>{
+  const pathname = new URL(req.url, "http://localhost").pathname.replace(/\/$/, "") || "/";
   if(req.method==="OPTIONS"){res.writeHead(204,cors);return res.end();}
-  if(req.url==="/api/health" && req.method==="GET"){
+  if(pathname==="/api/health" && req.method==="GET"){
     res.writeHead(API_KEY?200:503,{"Content-Type":"application/json",...cors});
-    return res.end(JSON.stringify({ok:!!API_KEY,service:"Deep Reader Neural Backend"}));
+    return res.end(JSON.stringify({ok:!!API_KEY,service:"Deep Reader Neural Backend",version:VERSION,apiKeyConfigured:!!API_KEY}));
   }
-  if(req.url==="/api/speech" && req.method==="POST"){
+  if(pathname==="/api/speech" && req.method==="POST"){
     if(!API_KEY){res.writeHead(503,{"Content-Type":"application/json",...cors});return res.end(JSON.stringify({error:"OPENAI_API_KEY is not configured"}));}
     let body="";
     for await (const c of req) body+=c;
@@ -47,6 +53,10 @@ const server = http.createServer(async (req,res)=>{
       res.writeHead(400,{"Content-Type":"application/json",...cors});
       return res.end(JSON.stringify({error:e.message}));
     }
+  }
+  if(req.method==="GET" && (pathname==="/" || pathname==="/reader" || pathname==="/reader/index.html")){
+    try { const page = await readFile(join(ROOT,"reader","index.html")); res.writeHead(200,{"Content-Type":"text/html; charset=utf-8","Cache-Control":"no-store",...cors});return res.end(page); }
+    catch(e){res.writeHead(500,{"Content-Type":"application/json",...cors});return res.end(JSON.stringify({error:"Reader not found",detail:e.message}));}
   }
   res.writeHead(404,{"Content-Type":"application/json",...cors});
   res.end(JSON.stringify({error:"Not found"}));
